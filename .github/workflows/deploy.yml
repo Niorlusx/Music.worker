@@ -25,5 +25,9 @@ jobs:
           workingDirectory: minimax/music-2-6
           secrets: |
             MINIMAX_API_KEY
+            GROK_API_KEY
+            TELEGRAM_BOT_TOKEN
         env:
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

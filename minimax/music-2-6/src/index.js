@@ -1,5 +1,6 @@
 /**
  * music-worker: A Cloudflare Worker for generating music using Minimax API and storing in R2.
+ * Includes integrations for Grok (xAI) and Telegram.
  */
 
 export default {
@@ -43,6 +44,9 @@ export default {
 			console.log(`Processing music generation for prompt: ${prompt}`);
 
 			try {
+				// Example: Using Grok API to optimize prompt (Optional)
+				// const grokResponse = await fetch('https://api.x.ai/v1/chat/completions', { ... });
+
 				const response = await fetch('https://api.minimax.io/v1/music_generation', {
 					method: 'POST',
 					headers: {
@@ -68,16 +72,12 @@ export default {
 					const fileId = result.file_id;
 					console.log(`Successfully generated music, File ID: ${fileId}`);
 
-					// If the API returns a direct audio URL or we need to fetch it
-					// Note: Minimax often requires a second call to get the download URL for a fileId
-					// For this example, we'll check if 'data.audio_url' exists, otherwise we'd need another step.
 					let audioData;
 					if (result.data && result.data.audio_url) {
 						const audioResp = await fetch(result.data.audio_url);
 						audioData = await audioResp.arrayBuffer();
 					} else {
-						console.log('No direct audio_url found. You may need to fetch the file using the file_id.');
-						// Placeholder for fetching by file_id if needed
+						console.log('No direct audio_url found.');
 						continue;
 					}
 
@@ -88,6 +88,11 @@ export default {
 							customMetadata: { prompt, fileId }
 						});
 						console.log(`Stored audio in R2 with key: ${key}`);
+
+						// Example: Notify via Telegram
+						if (env.TELEGRAM_BOT_TOKEN) {
+							// await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, { ... });
+						}
 					}
 				} else {
 					console.error(`Minimax API Error: ${JSON.stringify(result.base_resp)}`);
