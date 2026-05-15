@@ -1,0 +1,72 @@
+[
+  {
+    "sessionId": "3928f65f-1820-48ed-a2d7-90e146693c62",
+    "messageId": 0,
+    "type": "user",
+    "message": "` to temporarily toggle back into your standard shell. \nAre you looking to set up the Gemini CLI for a specific coding project, or did you run into an error during the installation process",
+    "timestamp": "2026-05-15T22:27:26.065Z"
+  },
+  {
+    "sessionId": "3928f65f-1820-48ed-a2d7-90e146693c62",
+    "messageId": 1,
+    "type": "user",
+    "message": "` to temporarily toggle back into your standard shell. \nAre you looking to set up the Gemini CLI for a specific coding project, or did you run into an error during the installation process",
+    "timestamp": "2026-05-15T22:27:33.136Z"
+  },
+  {
+    "sessionId": "3928f65f-1820-48ed-a2d7-90e146693c62",
+    "messageId": 2,
+    "type": "user",
+    "message": "2",
+    "timestamp": "2026-05-15T22:32:06.945Z"
+  },
+  {
+    "sessionId": "3928f65f-1820-48ed-a2d7-90e146693c62",
+    "messageId": 3,
+    "type": "user",
+    "message": "3",
+    "timestamp": "2026-05-15T22:34:19.372Z"
+  },
+  {
+    "sessionId": "3928f65f-1820-48ed-a2d7-90e146693c62",
+    "messageId": 4,
+    "type": "user",
+    "message": "3",
+    "timestamp": "2026-05-15T22:36:31.521Z"
+  },
+  {
+    "sessionId": "3928f65f-1820-48ed-a2d7-90e146693c62",
+    "messageId": 5,
+    "type": "user",
+    "message": "cfat_dHRmvJUBMbEiEWzlAKMe7ZsvuafTY548jbooLxEja0bae8c6",
+    "timestamp": "2026-05-15T22:39:00.135Z"
+  },
+  {
+    "sessionId": "3928f65f-1820-48ed-a2d7-90e146693c62",
+    "messageId": 6,
+    "type": "user",
+    "message": "https://d99b4332a5e7dfa390ef56b35d35859b.r2.cloudflarestorage.com",
+    "timestamp": "2026-05-15T22:43:32.743Z"
+  },
+  {
+    "sessionId": "3928f65f-1820-48ed-a2d7-90e146693c62",
+    "messageId": 7,
+    "type": "user",
+    "message": "2",
+    "timestamp": "2026-05-15T22:44:50.808Z"
+  },
+  {
+    "sessionId": "3928f65f-1820-48ed-a2d7-90e146693c62",
+    "messageId": 8,
+    "type": "user",
+    "message": "link to tge set up page on gut hub",
+    "timestamp": "2026-05-15T22:46:13.011Z"
+  },
+  {
+    "sessionId": "3928f65f-1820-48ed-a2d7-90e146693c62",
+    "messageId": 9,
+    "type": "user",
+    "message": "do it all",
+    "timestamp": "2026-05-15T22:47:03.091Z"
+  }
+]

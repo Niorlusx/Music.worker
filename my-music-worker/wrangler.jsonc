@@ -1,0 +1,10 @@
+{	"name": "<MUSICMAKRE>",
+	"main": "src/index.js"ai": {
+  "binding": "AI"
+}
+",
+	"compatibility_date": "<COMPATIBILITY_DATE>",
+	"observability": {
+		"enabled": true,
+	},
+}

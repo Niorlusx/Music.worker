@@ -1,0 +1,29 @@
+name: Deploy Music Worker
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: minimax/music-2-6
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: minimax/music-2-6
+          secrets: |
+            MINIMAX_API_KEY
+        env:
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}

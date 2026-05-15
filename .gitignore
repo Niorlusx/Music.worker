@@ -1,0 +1,9 @@
+.cache/
+.config/
+.gemini/
+.npm/
+node_modules/
+dist/
+.env
+*.tgz
+*.zip

@@ -1,0 +1,27 @@
+{
+  "name": "music-worker",
+  "main": "src/index.js",
+  "compatibility_date": "2026-05-16",
+  "observability": {
+    "enabled": true
+  },
+  "queues": {
+    "consumers": [
+      {
+        "queue": "my-queue"
+      }
+    ],
+    "producers": [
+      {
+        "binding": "MY_QUEUE",
+        "queue": "my-queue"
+      }
+    ]
+  },
+  "r2_buckets": [
+    {
+      "binding": "MUSIC_STORAGE",
+      "bucket_name": "music-storage-bucket"
+    }
+  ]
+}
