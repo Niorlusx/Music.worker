@@ -12,36 +12,40 @@ export default {
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
 
     try {
-      // Example prompt for music generation
-      const prompt = 'An upbeat electronic trap rap track with a catchy synth melody and deep bass driving beat';
+      let text = 'Hello, this is a generated voice message.';
+      
+      // Attempt to get text from request body
+      if (request.method === 'POST') {
+        try {
+          const body = await request.json();
+          if (body.text) text = body.text;
+        } catch (e) {
+          console.warn('Invalid JSON in request body');
+        }
+      }
 
-      // 1. Log the task to Supabase (assuming a 'tasks' table exists)
-      // If the table doesn't exist, this will fail or can be ignored.
+      // 1. Log the task to Supabase
       const { data, error: dbError } = await supabase
         .from('tasks')
-        .insert([{ prompt, status: 'pending', created_at: new Date().toISOString() }])
+        .insert([{ prompt: text, status: 'processing', created_at: new Date().toISOString() }])
         .select();
 
       if (dbError) {
         console.warn('Supabase Insert Error:', dbError.message);
       }
 
-      // 2. Run the AI model
-      // Note: @cf/openai/whisper is for speech-to-text. 
-      // For music generation, you'd typically use a different model or external API.
-      const response = await env.AI.run(
-        '@cf/openai/whisper', 
-        {
-          prompt: prompt,
-        }
-      );
+      // 2. Run the AI model (MeloTTS for Text-to-Speech)
+      const response = await env.AI.run('@cf/myshell-ai/melotts', {
+        text: text,
+      });
 
-      return new Response(JSON.stringify({
-        message: 'Task initiated',
-        supabase_task: data ? data[0] : 'Table not found or insert failed',
-        ai_response: response
-      }), {
-        headers: { 'Content-Type': 'application/json' },
+      // Update Supabase task status to completed
+      if (data && data[0]) {
+        await supabase.from('tasks').update({ status: 'completed' }).eq('id', data[0].id);
+      }
+
+      return new Response(response, {
+        headers: { 'Content-Type': 'audio/mpeg' },
       });
 
     } catch (error) {

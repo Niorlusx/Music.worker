@@ -15,5 +15,5 @@
 - **Secrets Management**: Store API keys (Minimax, Grok, Telegram, Supabase) in GitHub Secrets.
 
 ## Technical Details
-- Model for `my-music-worker`: `@cf/openai/whisper`.
-- Model for `music-2-6`: `music-2.6`.
+- Model for `my-music-worker`: `@cf/myshell-ai/melotts` (Text-to-Speech).
+- Model for `music-2-6`: `music-2.6` (Minimax).
