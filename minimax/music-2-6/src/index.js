@@ -51,6 +51,31 @@ async function sendTelegramMessage(env, chatId, text) {
 }
 
 export default {
+	/**
+	 * Scheduled handler: Automatically triggers every day to generate a new track.
+	 */
+	async scheduled(event, env, ctx) {
+		console.log("Cron trigger: Generating daily hands-free track...");
+		try {
+			// 1. Ask Gemini Flash for a creative music prompt
+			const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`;
+			const flashResp = await fetch(geminiUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					contents: [{ parts: [{ text: "Invent a short, highly creative prompt for an AI music generator. Just return the prompt text, no intro." }] }]
+				})
+			});
+			const flashResult = await flashResp.json();
+			const prompt = flashResult.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "A beautiful ambient morning melody";
+
+			// 2. Queue the task
+			await queueTask(prompt, "Daily hands-free track", false, env, env.TELEGRAM_CHAT_ID);
+		} catch (err) {
+			console.error("Cron Error:", err.message);
+		}
+	},
+
 	async fetch(req, env, ctx) {
 		const url = new URL(req.url);
 
@@ -139,60 +164,80 @@ export default {
 				}
 
 				// 1. Call Gemini API for music generation (using Lyria models)
-				const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${env.GEMINI_API_KEY}`;
+				const geminiKey = env.GEMINI_API_KEY;
+				const lyriaUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiKey}`;
 				
-				const geminiResponse = await fetch(geminiUrl, {
+				const lyriaResponse = await fetch(lyriaUrl, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
-						contents: [{ 
-							parts: [{ 
-								text: `Generate a high-fidelity music track based on this prompt: ${prompt}. Lyrics: ${lyrics || 'None'}. Instrumental: ${is_instrumental}` 
-							}] 
-						}],
-						generationConfig: {
-							response_mime_type: "audio/mpeg",
-						}
+						contents: [{ parts: [{ text: `Generate a high-fidelity music track: ${prompt}. Lyrics: ${lyrics || 'None'}. Instrumental: ${is_instrumental}` }] }],
+						generationConfig: { response_mime_type: "audio/mpeg" }
 					})
 				});
 
-				const result = await geminiResponse.json();
-				const audioBase64 = result.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+				const lyriaResult = await lyriaResponse.json();
+				const audioBase64 = lyriaResult.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 
 				if (audioBase64) {
 					const audioBuffer = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
-					const key = `music-${Date.now()}.mp3`;
-					
-					await env.MUSIC_STORAGE.put(key, audioBuffer, {
-						httpMetadata: { contentType: 'audio/mpeg' },
-						customMetadata: { prompt }
-					});
-					console.log(`Stored Gemini-generated audio in R2 with key: ${key}`);
+					const musicKey = `music-${Date.now()}.mp3`;
+					await env.MUSIC_STORAGE.put(musicKey, audioBuffer, { httpMetadata: { contentType: 'audio/mpeg' } });
 
-					// 2. Update Supabase with success
+					// 2. Generate 8-second Music Video Loop using Veo 3.1
+					console.log(`Generating music video for prompt: ${prompt}`);
+					const veoUrl = `https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predict?key=${geminiKey}`;
+					const veoResp = await fetch(veoUrl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							prompt: `Cinematic visualization matching this music: ${prompt}`,
+							aspect_ratio: "16:9",
+							video_format: "mp4"
+						})
+					});
+					
+					const veoOperation = await veoResp.json();
+					let videoBuffer;
+
+					if (veoOperation.name) {
+						// Poll for completion (Veo is async)
+						console.log(`Veo operation started: ${veoOperation.name}. Polling...`);
+						while (true) {
+							await new Promise(r => setTimeout(r, 15000));
+							const pollResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/${veoOperation.name}?key=${geminiKey}`);
+							const opStatus = await pollResp.json();
+							
+							if (opStatus.done) {
+								const videoBase64 = opStatus.response?.generated_clip?.video?.data;
+								if (videoBase64) {
+									videoBuffer = Uint8Array.from(atob(videoBase64), c => c.charCodeAt(0));
+								}
+								break;
+							}
+						}
+					}
+
+					let videoKey = null;
+					if (videoBuffer) {
+						videoKey = `video-${Date.now()}.mp4`;
+						await env.MUSIC_STORAGE.put(videoKey, videoBuffer, { httpMetadata: { contentType: 'video/mp4' } });
+					}
+
+					// 3. Update Supabase with success
 					if (task_id) {
 						await supabase.from('music_tasks').update({ 
 							status: 'completed',
-							r2_key: key,
+							r2_key: musicKey,
 							optimized_prompt: prompt
 						}).eq('id', task_id);
 					}
 
-					// 3. Notify via Telegram
+					// 4. Notify via Telegram
 					const chatId = telegram_chat_id || env.TELEGRAM_CHAT_ID;
 					if (env.TELEGRAM_BOT_TOKEN && chatId) {
-						try {
-							await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({
-									chat_id: chatId,
-									text: `🎵 Gemini Music Generation Complete!\nPrompt: ${prompt}\nKey: ${key}`,
-								}),
-							});
-						} catch (tgErr) {
-							console.error(`Telegram Error: ${tgErr.message}`);
-						}
+						const msg = `✨ Hands-Free Generation Complete!\n\n🎵 Music: ${musicKey}\n🎬 Video: ${videoKey || 'Failed'}\n\nPrompt: ${prompt}`;
+						await sendTelegramMessage(env, chatId, msg);
 					}
 				} else {
 					throw new Error('Gemini failed to return audio data.');
@@ -200,10 +245,7 @@ export default {
 			} catch (err) {
 				console.error(`Failed to process message ${message.id}: ${err.message}`);
 				if (task_id) {
-					await supabase.from('music_tasks').update({ 
-						status: 'error',
-						error: err.message
-					}).eq('id', task_id);
+					await supabase.from('music_tasks').update({ status: 'error', error: err.message }).eq('id', task_id);
 				}
 			}
 		}
