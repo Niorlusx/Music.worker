@@ -3,6 +3,8 @@ import worker from './src/index.js';
 async function testFetch() {
     console.log("--- Testing Fetch Handler ---");
     const mockEnv = {
+        SUPABASE_URL: "https://mock.supabase.co",
+        SUPABASE_ANON_KEY: "mock_key",
         MY_QUEUE: {
             send: async (msg) => console.log("   [Mock Queue] Message sent:", JSON.stringify(msg, null, 2))
         }
