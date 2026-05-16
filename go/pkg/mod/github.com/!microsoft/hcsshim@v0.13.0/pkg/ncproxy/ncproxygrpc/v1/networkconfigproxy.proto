@@ -1,0 +1,218 @@
+syntax = "proto3";
+
+package ncproxygrpc.v1;
+option go_package = "github.com/Microsoft/hcsshim/pkg/ncproxy/ncproxygrpc/v1";
+
+service NetworkConfigProxy {
+    rpc AddNIC(AddNICRequest) returns (AddNICResponse) {}
+    rpc ModifyNIC(ModifyNICRequest) returns (ModifyNICResponse) {}
+    rpc DeleteNIC(DeleteNICRequest) returns (DeleteNICResponse) {}
+
+    rpc CreateNetwork(CreateNetworkRequest) returns (CreateNetworkResponse) {}
+    rpc CreateEndpoint(CreateEndpointRequest) returns (CreateEndpointResponse) {}
+    rpc AddEndpoint(AddEndpointRequest) returns (AddEndpointResponse) {}
+    rpc DeleteEndpoint(DeleteEndpointRequest) returns (DeleteEndpointResponse) {}
+    rpc DeleteNetwork(DeleteNetworkRequest) returns (DeleteNetworkResponse) {}
+    rpc GetEndpoint(GetEndpointRequest) returns (GetEndpointResponse) {}
+    rpc GetNetwork(GetNetworkRequest) returns (GetNetworkResponse) {}
+    rpc GetEndpoints(GetEndpointsRequest) returns (GetEndpointsResponse) {}
+    rpc GetNetworks(GetNetworksRequest) returns (GetNetworksResponse) {}
+}
+
+message AddNICRequest {
+    string container_id = 1;
+    string nic_id = 2;
+    string endpoint_name = 3;
+    EndpointSettings endpoint_settings = 4;
+}
+
+message AddNICResponse {}
+
+message ModifyNICRequest {
+    string container_id = 1;
+    string nic_id = 2;
+    string endpoint_name = 3;
+    EndpointSettings endpoint_settings = 4;
+}
+
+message ModifyNICResponse {}
+
+message DeleteNICRequest {
+    string container_id = 1;
+    string nic_id = 2;
+    string endpoint_name = 3;
+}
+
+message DeleteNICResponse {}
+
+message CreateNetworkRequest {
+    Network network = 1;
+}
+
+message Network {
+    oneof settings {
+        HostComputeNetworkSettings hcn_network = 1;
+        NCProxyNetworkSettings ncproxy_network = 2;
+    }
+}
+
+message NCProxyNetworkSettings {
+    string name = 1;
+}
+
+message HostComputeNetworkSettings {
+    enum NetworkMode
+    {
+        Transparent = 0;
+        NAT = 1;
+    }
+    enum IpamType
+    {
+        Static = 0;
+        DHCP = 1;
+    }
+
+    string name = 1;
+    NetworkMode mode = 2;
+    string switch_name = 3;
+    IpamType ipam_type = 4;
+    repeated string subnet_ipaddress_prefix = 5;
+    string default_gateway = 6;
+    repeated string subnet_ipaddress_prefix_ipv6 = 7;
+    string default_gateway_ipv6 = 8;
+}
+
+message CreateNetworkResponse{
+    string id = 1;
+}
+
+message PortNameEndpointPolicySetting {
+    string port_name = 1;
+}
+
+message IovEndpointPolicySetting {
+    uint32 iov_offload_weight = 1;
+    uint32 queue_pairs_requested = 2;
+    uint32 interrupt_moderation = 3;
+}
+
+message DnsSetting {
+    repeated string server_ip_addrs = 1;
+    string domain = 2;
+    repeated string search = 3;
+}
+
+message CreateEndpointRequest {
+    EndpointSettings endpoint_settings = 1;
+}
+
+message EndpointSettings {
+    oneof settings {
+        HcnEndpointSettings hcn_endpoint = 1;
+        NCProxyEndpointSettings ncproxy_endpoint = 2;
+    }
+}
+
+message HcnEndpointResponse {
+    string namespace = 1;
+    string id = 2;
+    HcnEndpointSettings settings = 3;
+}
+
+message HcnEndpointSettings {
+    string name = 1;
+    string macaddress = 2;
+    string ipaddress = 3;
+    uint32 ipaddress_prefixlength = 4;
+    string network_name = 5;
+    HcnEndpointPolicies policies = 6;
+    DnsSetting dns_setting = 7;
+    string ipv6address = 8;
+    uint32 ipv6address_prefixlength = 9;
+}
+
+message HcnEndpointPolicies {
+    reserved 3 to 7;
+    PortNameEndpointPolicySetting portname_policy_setting = 1;
+    IovEndpointPolicySetting iov_policy_settings = 2;
+}
+
+message NCProxyEndpointSettings {
+    string name = 1;
+    string macaddress = 2;
+    string ipaddress = 3;
+    uint32 ipaddress_prefixlength = 4;
+    string network_name = 5;
+    string default_gateway = 6;
+    oneof device_details {
+        PCIDeviceDetails pci_device_details = 7;
+    }
+    string ipv6address = 8;
+    string ipv6address_prefixlength = 9;
+}
+
+message PCIDeviceDetails {
+    string device_id = 1;
+    uint32 virtual_function_index = 2;
+}
+
+message CreateEndpointResponse{
+    string id = 1;
+}
+
+message AddEndpointRequest {
+    string name = 1;
+    string namespace_id = 2;
+    bool attach_to_host = 3;
+}
+
+message AddEndpointResponse{}
+
+message DeleteEndpointRequest {
+    string name = 1;
+}
+
+message DeleteEndpointResponse{}
+
+message DeleteNetworkRequest{
+    string name = 1;
+}
+
+message DeleteNetworkResponse{}
+
+message GetEndpointRequest{
+    string name = 1;
+}
+
+message GetEndpointResponse{
+    string namespace = 1;
+    string id = 2;
+    EndpointSettings endpoint = 3;
+}
+
+message GetNetworkRequest{
+    string name = 1;
+}
+
+message GetNetworkResponse{
+    string id = 1;
+    Network network = 2;
+    MacRange macRange = 3;
+}
+
+message MacRange {
+    string startMacAddress = 1;
+    string endMacAddress = 2;
+}
+
+message GetEndpointsRequest{}
+
+message GetEndpointsResponse{
+    repeated GetEndpointResponse endpoints = 1;
+}
+
+message GetNetworksRequest{}
+
+message GetNetworksResponse{
+    repeated GetNetworkResponse networks = 1;
+}

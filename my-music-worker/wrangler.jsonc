@@ -7,7 +7,8 @@
   },
   "vars": {
     "SUPABASE_URL": "YOUR_SUPABASE_URL",
-    "SUPABASE_ANON_KEY": "YOUR_SUPABASE_ANON_KEY"
+    "SUPABASE_ANON_KEY": "YOUR_SUPABASE_ANON_KEY",
+    "GEMINI_API_KEY": "YOUR_GEMINI_API_KEY"
   },
   "observability": {
     "enabled": true

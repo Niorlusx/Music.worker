@@ -1,0 +1,26 @@
+name: run_tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  run_tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - pg_version: "14"
+          - pg_version: "15"
+          - pg_version: "16"
+          - pg_version: "17"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Build Docker image
+        run: docker build -t pg-schema-diff-test-runner -f ./build/Dockerfile.test --build-arg PG_VERSION=${{ matrix.pg_version }} .
+      - name: Run tests
+        run: docker run pg-schema-diff-test-runner

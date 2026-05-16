@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+
+name: build
+on: [push, pull_request]
+jobs:
+  tests: # this is the only required check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.18'
+      - name: Run tests
+        run: make test
+      - name: Send coverage report to coveralls
+        uses: shogo82148/actions-goveralls@v1
+        with:
+          path-to-profile: profile.cov
+
+  test-platforms:
+    strategy:
+      matrix:
+        go-version: ['stable']
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Run tests
+        run: make test

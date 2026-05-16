@@ -1,0 +1,32 @@
+name: lint
+
+on:
+  pull_request:
+    branches_ignore: []
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: ['1.22']
+
+    name: Linting
+    steps:
+
+      - uses: actions/checkout@v2
+        with:
+          path: go/src/github.com/vbatts/tar-split
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: lint
+        env:
+          GOPATH: /home/runner/work/tar-split/tar-split/go
+        run: |
+          set -x
+          export PATH=$GOPATH/bin:$PATH
+          cd go/src/github.com/vbatts/tar-split
+          go run mage.go -v lint

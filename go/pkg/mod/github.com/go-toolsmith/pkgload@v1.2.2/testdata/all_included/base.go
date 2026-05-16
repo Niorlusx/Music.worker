@@ -1,0 +1,5 @@
+package allincluded
+
+func f() {
+
+}

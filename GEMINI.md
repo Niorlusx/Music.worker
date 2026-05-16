@@ -15,5 +15,6 @@
 - **Secrets Management**: Store API keys (Minimax, Grok, Telegram, Supabase) in GitHub Secrets.
 
 ## Technical Details
-- Model for `my-music-worker`: `@cf/myshell-ai/melotts` (Text-to-Speech).
-- Model for `music-2-6`: `music-2.6` (Minimax).
+- Model for `my-music-worker`: `gemini-1.5-flash` (Text-to-Speech).
+- Model for `music-2-6`: `gemini-1.5-pro` (Lyria Music Generation).
+- **AI Provider**: Google Gemini API (Single key for all services).

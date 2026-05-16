@@ -1,0 +1,535 @@
+// Copyright 2025 Supabase, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package telemetry
+
+import (
+	"context"
+	"log/slog"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+
+	"github.com/multigres/multigres/go/tools/ctxutil"
+)
+
+func TestNewTelemetry(t *testing.T) {
+	tel := NewTelemetry()
+	require.NotNil(t, tel)
+	assert.False(t, tel.initialized)
+	assert.Nil(t, tel.tracerProvider)
+	assert.Nil(t, tel.meterProvider)
+	assert.Nil(t, tel.loggerProvider)
+}
+
+func TestInitTelemetry_DefaultServiceName(t *testing.T) {
+	setup := SetupTestTelemetry(t)
+	ctx := context.Background()
+
+	err := setup.Telemetry.InitTelemetry(ctx, "test-service")
+	require.NoError(t, err)
+
+	// Verify initialization completed
+	assert.True(t, setup.Telemetry.initialized)
+	assert.NotNil(t, setup.Telemetry.tracerProvider)
+	assert.NotNil(t, setup.Telemetry.meterProvider)
+	assert.NotNil(t, setup.Telemetry.loggerProvider)
+
+	// Verify shutdown works
+	err = setup.Telemetry.ShutdownTelemetry(ctx)
+	require.NoError(t, err)
+}
+
+func TestInitTelemetry_WithServiceNameEnvVar(t *testing.T) {
+	t.Setenv("OTEL_SERVICE_NAME", "custom-service-from-env")
+
+	setup := SetupTestTelemetry(t)
+	ctx := context.Background()
+
+	err := setup.Telemetry.InitTelemetry(ctx, "default-service")
+	require.NoError(t, err)
+
+	// Note: We can't easily assert the service name was used since it's internal
+	// but we verify that initialization succeeded with the env var set
+	assert.True(t, setup.Telemetry.initialized)
+
+	err = setup.Telemetry.ShutdownTelemetry(ctx)
+	require.NoError(t, err)
+}
+
+func TestInitTelemetry_Idempotency(t *testing.T) {
+	setup := SetupTestTelemetry(t)
+	ctx := context.Background()
+
+	// First initialization
+	err := setup.Telemetry.InitTelemetry(ctx, "test-service")
+	require.NoError(t, err)
+
+	// Second initialization should succeed without error
+	err = setup.Telemetry.InitTelemetry(ctx, "different-service")
+	require.NoError(t, err)
+
+	// Should still be initialized
+	assert.True(t, setup.Telemetry.initialized)
+
+	err = setup.Telemetry.ShutdownTelemetry(ctx)
+	require.NoError(t, err)
+}
+
+func TestGetTracerProvider(t *testing.T) {
+	setup := SetupTestTelemetry(t)
+	ctx := context.Background()
+
+	// Before initialization, should return a provider (possibly noop)
+	provider1 := setup.Telemetry.GetTracerProvider()
+	require.NotNil(t, provider1)
+
+	// Initialize
+	err := setup.Telemetry.InitTelemetry(ctx, "test-service")
+	require.NoError(t, err)
+
+	// After initialization, should return the configured provider
+	provider2 := setup.Telemetry.GetTracerProvider()
+	require.NotNil(t, provider2)
+	assert.Equal(t, setup.Telemetry.tracerProvider, provider2)
+
+	assert.NotEqual(t, provider1, provider2)
+
+	err = setup.Telemetry.ShutdownTelemetry(ctx)
+	require.NoError(t, err)
+}
+
+func TestGetTracer(t *testing.T) {
+	setup := SetupTestTelemetry(t)
+	ctx := context.Background()
+
+	err := setup.Telemetry.InitTelemetry(ctx, "test-service")
+	require.NoError(t, err)
+
+	// Verify the global tracer provider was set correctly
+	globalProvider := otel.GetTracerProvider()
+	require.Equal(t, setup.Telemetry.GetTracerProvider(), globalProvider,
+		"global tracer provider should match Telemetry's tracer provider")
+
+	// Test using the global tracer (matches production usage where Telemetry object isn't passed around)
+	tracer := otel.Tracer("test-tracer")
+	require.NotNil(t, tracer)
+
+	// Verify we can create a span with the global tracer
+	_, span := tracer.Start(ctx, "test-span")
+	require.NotNil(t, span)
+	span.End()
+
+	// Also verify GetTracer() method still works for cases where Telemetry is available
+	tracerDirect := otel.Tracer("test-tracer-direct")
+	require.NotNil(t, tracerDirect)
+
+	err = setup.Telemetry.ShutdownTelemetry(ctx)
+	require.NoError(t, err)
+}
+
+func TestShutdownTelemetry_BeforeInit(t *testing.T) {
+	setup := SetupTestTelemetry(t)
+	ctx := context.Background()
+
+	// Shutdown before initialization should not error
+	err := setup.Telemetry.ShutdownTelemetry(ctx)
+	require.NoError(t, err)
+}
+
+func TestShutdownTelemetry_WithTimeout(t *testing.T) {
+	setup := SetupTestTelemetry(t)
+	ctx := context.Background()
+
+	err := setup.Telemetry.InitTelemetry(ctx, "test-service")
+	require.NoError(t, err)
+
+	// Create some spans
+	tracer := otel.Tracer("test")
+	_, span := tracer.Start(ctx, "test-span")
+	span.End()
+
+	// Shutdown with timeout
+	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	err = setup.Telemetry.ShutdownTelemetry(shutdownCtx)
+	require.NoError(t, err)
+}
+
+func TestWrapSlogHandler_InjectsTraceContext(t *testing.T) {
+	setup := SetupTestTelemetry(t)
+	ctx := context.Background()
+
+	err := setup.Telemetry.InitTelemetry(ctx, "test-service")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, setup.Telemetry.ShutdownTelemetry(ctx))
+	})
+
+	// Create a simple in-memory handler to capture log output
+	type capturedRecord struct {
+		traceID string
+		spanID  string
+	}
+	var captured *capturedRecord
+
+	baseHandler := &testHandler{
+		onHandle: func(ctx context.Context, r slog.Record) error {
+			captured = &capturedRecord{}
+			r.Attrs(func(a slog.Attr) bool {
+				if a.Key == "trace_id" {
+					captured.traceID = a.Value.String()
+				}
+				if a.Key == "span_id" {
+					captured.spanID = a.Value.String()
+				}
+				return true
+			})
+			return nil
+		},
+	}
+
+	// Wrap the handler
+	wrappedHandler := setup.Telemetry.WrapSlogHandler(baseHandler)
+
+	// Create a span context
+	tracer := otel.Tracer("test")
+	spanCtx, span := tracer.Start(ctx, "test-span")
+	defer span.End()
+
+	// Log with span context
+	logger := slog.New(wrappedHandler)
+	logger.InfoContext(spanCtx, "test message")
+
+	// Verify trace_id and span_id were injected
+	require.NotNil(t, captured)
+	assert.NotEmpty(t, captured.traceID, "trace_id should be injected")
+	assert.NotEmpty(t, captured.spanID, "span_id should be injected")
+
+	// Verify the IDs match the span
+	spanContext := span.SpanContext()
+	assert.Equal(t, spanContext.TraceID().String(), captured.traceID)
+	assert.Equal(t, spanContext.SpanID().String(), captured.spanID)
+}
+
+func TestWrapSlogHandler_NoSpanContext(t *testing.T) {
+	setup := SetupTestTelemetry(t)
+	ctx := context.Background()
+
+	err := setup.Telemetry.InitTelemetry(ctx, "test-service")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, setup.Telemetry.ShutdownTelemetry(ctx))
+	})
+
+	// Track whether trace_id or span_id were added
+	var hasTraceID, hasSpanID bool
+
+	baseHandler := &testHandler{
+		onHandle: func(ctx context.Context, r slog.Record) error {
+			r.Attrs(func(a slog.Attr) bool {
+				if a.Key == "trace_id" {
+					hasTraceID = true
+				}
+				if a.Key == "span_id" {
+					hasSpanID = true
+				}
+				return true
+			})
+			return nil
+		},
+	}
+
+	wrappedHandler := setup.Telemetry.WrapSlogHandler(baseHandler)
+
+	// Log without span context
+	logger := slog.New(wrappedHandler)
+	logger.InfoContext(ctx, "test message without span")
+
+	// Verify trace_id and span_id were NOT injected
+	assert.False(t, hasTraceID, "trace_id should not be injected without span context")
+	assert.False(t, hasSpanID, "span_id should not be injected without span context")
+}
+
+// testHandler is a simple slog.Handler for testing
+type testHandler struct {
+	onHandle func(context.Context, slog.Record) error
+}
+
+func (h *testHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return true
+}
+
+func (h *testHandler) Handle(ctx context.Context, r slog.Record) error {
+	if h.onHandle != nil {
+		return h.onHandle(ctx, r)
+	}
+	return nil
+}
+
+func (h *testHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return h
+}
+
+func (h *testHandler) WithGroup(name string) slog.Handler {
+	return h
+}
+
+func TestInitTelemetry_WithResourceAttributes(t *testing.T) {
+	setup := SetupTestTelemetry(t)
+	ctx := context.Background()
+
+	// Initialize with service name and additional resource attributes
+	err := setup.Telemetry.InitTelemetry(ctx, "test-service",
+		semconv.ServiceInstanceID("instance-123"),
+		semconv.CloudAvailabilityZone("zone-a"),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, setup.Telemetry.ShutdownTelemetry(ctx))
+	})
+
+	// Create a span to capture resource attributes
+	tracer := otel.Tracer("test")
+	_, span := tracer.Start(ctx, "test-span")
+	span.End()
+
+	// Force flush to ensure span is exported
+	require.NoError(t, setup.ForceFlush(ctx))
+
+	// Get the exported spans
+	spans := setup.SpanExporter.GetSpans()
+	require.Len(t, spans, 1, "expected exactly one span")
+
+	// Extract resource attributes from the span
+	resource := spans[0].Resource
+	attrs := resource.Attributes()
+
+	// Helper to find attribute by key
+	findAttr := func(key attribute.Key) (attribute.Value, bool) {
+		for _, attr := range attrs {
+			if attr.Key == key {
+				return attr.Value, true
+			}
+		}
+		return attribute.Value{}, false
+	}
+
+	// Verify service.name
+	val, found := findAttr(semconv.ServiceNameKey)
+	require.True(t, found, "service.name should be present")
+	assert.Equal(t, "test-service", val.AsString())
+
+	// Verify service.instance.id
+	val, found = findAttr(semconv.ServiceInstanceIDKey)
+	require.True(t, found, "service.instance.id should be present")
+	assert.Equal(t, "instance-123", val.AsString())
+
+	// Verify cloud.availability_zone
+	val, found = findAttr(semconv.CloudAvailabilityZoneKey)
+	require.True(t, found, "cloud.availability_zone should be present")
+	assert.Equal(t, "zone-a", val.AsString())
+}
+
+func TestInitTelemetry_WithoutOptionalAttributes(t *testing.T) {
+	setup := SetupTestTelemetry(t)
+	ctx := context.Background()
+
+	// Initialize with only service name (no additional attributes)
+	err := setup.Telemetry.InitTelemetry(ctx, "minimal-service")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, setup.Telemetry.ShutdownTelemetry(ctx))
+	})
+
+	// Create a span
+	tracer := otel.Tracer("test")
+	_, span := tracer.Start(ctx, "test-span")
+	span.End()
+
+	require.NoError(t, setup.ForceFlush(ctx))
+
+	spans := setup.SpanExporter.GetSpans()
+	require.Len(t, spans, 1)
+
+	resource := spans[0].Resource
+	attrs := resource.Attributes()
+
+	// Helper to find attribute by key
+	findAttr := func(key attribute.Key) (attribute.Value, bool) {
+		for _, attr := range attrs {
+			if attr.Key == key {
+				return attr.Value, true
+			}
+		}
+		return attribute.Value{}, false
+	}
+
+	// Verify service.name is present
+	val, found := findAttr(semconv.ServiceNameKey)
+	require.True(t, found, "service.name should be present")
+	assert.Equal(t, "minimal-service", val.AsString())
+
+	// Verify optional attributes are NOT present
+	_, found = findAttr(semconv.ServiceInstanceIDKey)
+	assert.False(t, found, "service.instance.id should not be present when not provided")
+
+	_, found = findAttr(semconv.CloudAvailabilityZoneKey)
+	assert.False(t, found, "cloud.availability_zone should not be present when not provided")
+}
+
+func TestMetrics_WithResourceAttributes(t *testing.T) {
+	setup := SetupTestTelemetry(t)
+	ctx := context.Background()
+
+	// Initialize with service name and additional resource attributes
+	err := setup.Telemetry.InitTelemetry(ctx, "test-metrics-service",
+		semconv.ServiceInstanceID("metrics-instance-456"),
+		semconv.CloudAvailabilityZone("metrics-zone-b"),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, setup.Telemetry.ShutdownTelemetry(ctx))
+	})
+
+	// Create a meter and record a metric
+	meter := otel.Meter("test-meter")
+	counter, err := meter.Int64Counter("test_counter")
+	require.NoError(t, err)
+
+	counter.Add(ctx, 1)
+
+	// Force flush and collect metrics
+	require.NoError(t, setup.ForceFlush(ctx))
+
+	var rm metricdata.ResourceMetrics
+	err = setup.MetricReader.Collect(ctx, &rm)
+	require.NoError(t, err)
+
+	// Extract resource attributes from metrics
+	resource := rm.Resource
+	attrs := resource.Attributes()
+
+	// Helper to find attribute by key
+	findAttr := func(key attribute.Key) (attribute.Value, bool) {
+		for _, attr := range attrs {
+			if attr.Key == key {
+				return attr.Value, true
+			}
+		}
+		return attribute.Value{}, false
+	}
+
+	// Verify service.name
+	val, found := findAttr(semconv.ServiceNameKey)
+	require.True(t, found, "service.name should be present on metrics")
+	assert.Equal(t, "test-metrics-service", val.AsString())
+
+	// Verify service.instance.id
+	val, found = findAttr(semconv.ServiceInstanceIDKey)
+	require.True(t, found, "service.instance.id should be present on metrics")
+	assert.Equal(t, "metrics-instance-456", val.AsString())
+
+	// Verify cloud.availability_zone
+	val, found = findAttr(semconv.CloudAvailabilityZoneKey)
+	require.True(t, found, "cloud.availability_zone should be present on metrics")
+	assert.Equal(t, "metrics-zone-b", val.AsString())
+}
+
+func TestWrapSlogHandler_CompositeHandler(t *testing.T) {
+	setup := SetupTestTelemetry(t)
+	ctx := t.Context()
+
+	err := setup.Telemetry.InitTelemetry(ctx, "test-service")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(ctxutil.Detach(ctx), 2*time.Second)
+		defer cancel()
+		require.NoError(t, setup.Telemetry.ShutdownTelemetry(cleanupCtx))
+	})
+
+	// Track calls to both local and OTLP handlers
+	var localCalled bool
+
+	baseHandler := &testHandler{
+		onHandle: func(ctx context.Context, r slog.Record) error {
+			localCalled = true
+			return nil
+		},
+	}
+
+	// Wrap the handler - should create composite handler with OTLP
+	wrappedHandler := setup.Telemetry.WrapSlogHandler(baseHandler)
+
+	// Log a message
+	logger := slog.New(wrappedHandler)
+	logger.InfoContext(ctx, "test message")
+
+	// Verify local handler was called
+	assert.True(t, localCalled, "local handler should be called")
+
+	// Note: We can't easily verify OTLP handler was called without exposing internals,
+	// but we verify the composite handler was created by checking the type
+	// The actual OTLP export is tested via the test log processor in SetupTestTelemetry
+	_, isComposite := wrappedHandler.(*compositeHandler)
+	assert.True(t, isComposite, "should return composite handler when LoggerProvider is initialized")
+}
+
+func TestWrapSlogHandler_WithoutLoggerProvider(t *testing.T) {
+	// Create telemetry WITHOUT initializing (no LoggerProvider)
+	tel := NewTelemetry()
+
+	baseHandler := &testHandler{
+		onHandle: func(ctx context.Context, r slog.Record) error {
+			return nil
+		},
+	}
+
+	// Wrap handler without LoggerProvider - should only get trace handler
+	wrappedHandler := tel.WrapSlogHandler(baseHandler)
+
+	// Verify it's NOT a composite handler
+	_, isComposite := wrappedHandler.(*compositeHandler)
+	assert.False(t, isComposite, "should not return composite handler when LoggerProvider is nil")
+
+	// Verify it IS a trace handler
+	_, isTrace := wrappedHandler.(*traceHandler)
+	assert.True(t, isTrace, "should return trace handler when LoggerProvider is nil")
+}
+
+func TestInitLogs_DefaultsToNone(t *testing.T) {
+	// Don't set OTEL_LOGS_EXPORTER env var
+	// The initLogs should default to "none" and not create a LoggerProvider
+
+	tel := NewTelemetry()
+	ctx := t.Context()
+
+	err := tel.InitTelemetry(ctx, "test-service")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(ctxutil.Detach(ctx), 2*time.Second)
+		defer cancel()
+		require.NoError(t, tel.ShutdownTelemetry(cleanupCtx))
+	})
+
+	// LoggerProvider should be nil when OTEL_LOGS_EXPORTER defaults to "none"
+	assert.Nil(t, tel.loggerProvider, "loggerProvider should be nil when logs exporter is 'none'")
+}

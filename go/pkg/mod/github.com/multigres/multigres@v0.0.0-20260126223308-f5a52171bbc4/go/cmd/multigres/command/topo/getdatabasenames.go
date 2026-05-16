@@ -1,0 +1,63 @@
+// Copyright 2025 Supabase, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package topo
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/spf13/cobra"
+
+	"github.com/multigres/multigres/go/cmd/multigres/command/admin"
+	multiadminpb "github.com/multigres/multigres/go/pb/multiadmin"
+)
+
+// runGetDatabaseNames handles the getdatabasenames command
+func runGetDatabaseNames(cmd *cobra.Command, args []string) error {
+	// Create admin client
+	client, err := admin.NewClient(cmd)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	response, err := client.GetDatabaseNames(cmd.Context(), &multiadminpb.GetDatabaseNamesRequest{})
+	if err != nil {
+		return fmt.Errorf("failed to get database names: %w", err)
+	}
+
+	// Convert to JSON and output
+	jsonData, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal response to JSON: %w", err)
+	}
+
+	cmd.Print(string(jsonData))
+	return nil
+}
+
+// AddGetDatabaseNamesCommand adds the getdatabasenames subcommand
+func AddGetDatabaseNamesCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "getdatabasenames",
+		Short: "Get all database names in the cluster",
+		Long:  "Retrieve a list of all database names in the Multigres cluster.",
+		RunE:  runGetDatabaseNames,
+	}
+
+	cmd.Flags().String("admin-server", "", "Address of the multiadmin server (overrides config)")
+
+	return cmd
+}

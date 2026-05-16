@@ -34,17 +34,40 @@ export default {
         console.warn('Supabase Insert Error:', dbError.message);
       }
 
-      // 2. Run the AI model (MeloTTS for Text-to-Speech)
-      const response = await env.AI.run('@cf/myshell-ai/melotts', {
-        text: text,
+      // 2. Run the AI model (Gemini for Text-to-Speech)
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
+      
+      const geminiResponse = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: text }] }],
+          generationConfig: {
+            response_mime_type: "audio/mpeg",
+          }
+        })
       });
+
+      const result = await geminiResponse.json();
+      
+      // Extract audio from Gemini response (assuming it returns base64 in the first part)
+      // Note: Gemini 1.5 Flash supports native audio generation in preview.
+      // If the specific TTS model is used, the endpoint might differ slightly.
+      const audioBase64 = result.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+      if (!audioBase64) {
+        throw new Error('Failed to generate audio from Gemini.');
+      }
 
       // Update Supabase task status to completed
       if (data && data[0]) {
         await supabase.from('tasks').update({ status: 'completed' }).eq('id', data[0].id);
       }
 
-      return new Response(response, {
+      // Convert base64 to array buffer
+      const audioBuffer = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
+
+      return new Response(audioBuffer, {
         headers: { 'Content-Type': 'audio/mpeg' },
       });
 

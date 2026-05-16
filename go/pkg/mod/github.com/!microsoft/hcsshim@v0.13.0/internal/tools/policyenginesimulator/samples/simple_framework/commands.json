@@ -1,0 +1,941 @@
+[
+    {
+        "name": "load_fragment",
+        "input": {
+            "feed": "contoso.azurecr.io/infra",
+            "issuer": "did:web:contoso.com",
+            "namespace": "fragment",
+            "local_path": "fragment.rego"
+        }
+    },
+    {
+        "name": "exec_external",
+        "input": {
+            "argList": [
+                "bash"
+            ],
+            "envList": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            ],
+            "workingDir": "/"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "1b80f120dbd88e4355d6241b519c3e25290215c469516b49dece9cf07175a766",
+            "target": "/run/layers/p0-layer0"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "e769d7487cc314d3ee748a4440805317c19262c7acd2fdbdb0d47d2e4613a15c",
+            "target": "/run/layers/p0-layer1"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "eb36921e1f82af46dfe248ef8f1b3afb6a5230a64181d960d10237a08cd73c79",
+            "target": "/run/layers/p0-layer2"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "41d64cdeb347bf236b4c13b7403b633ff11f1cf94dbc7cf881a44d6da88c5156",
+            "target": "/run/layers/p0-layer3"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "4dedae42847c704da891a28c25d32201a1ae440bce2aecccfa8e6f03b97a6a6c",
+            "target": "/run/layers/p0-layer4"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "fe84c9d5bfddd07a2624d00333cf13c1a9c941f3a261f13ead44fc6a93bc0e7a",
+            "target": "/run/layers/p0-layer5"
+        }
+    },
+    {
+        "name": "mount_overlay",
+        "input": {
+            "containerID": "container0",
+            "layerPaths": [
+                "/run/layers/p0-layer0",
+                "/run/layers/p0-layer1",
+                "/run/layers/p0-layer2",
+                "/run/layers/p0-layer3",
+                "/run/layers/p0-layer4",
+                "/run/layers/p0-layer5"
+            ],
+            "target": "/run/gcs/c/container0/rootfs"
+        }
+    },
+    {
+        "name": "scratch_mount",
+        "input": {
+            "encrypted": true,
+            "target": "/mnt/layer6"
+        }
+    },
+    {
+        "name": "create_container",
+        "input": {
+            "argList": [
+                "rustc",
+                "--help"
+            ],
+            "capabilities": {
+                "ambient": [
+                    "CAP_SYS_ADMIN"
+                ],
+                "bounding": [
+                    "CAP_SYS_ADMIN"
+                ],
+                "effective": [
+                    "CAP_SYS_ADMIN"
+                ],
+                "inheritable": [
+                    "CAP_SYS_ADMIN"
+                ],
+                "permitted": [
+                    "CAP_SYS_ADMIN"
+                ]
+            },
+            "containerID": "container0",
+            "envList": [
+                "CARGO_HOME=/usr/local/cargo",
+                "RUST_VERSION=1.52.1",
+                "TERM=xterm",
+                "PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "RUSTUP_HOME=/usr/local/rustup"
+            ],
+            "groups": [
+                {
+                    "id": "0",
+                    "name": "root"
+                }
+            ],
+            "hugePagesDir": "/run/gcs/c/sandbox0/hugepages",
+            "mounts": [
+                {
+                    "destination": "/container/path/one",
+                    "options": [
+                        "rbind",
+                        "rshared",
+                        "rw"
+                    ],
+                    "source": "/run/gcs/c/sandbox0/sandboxMounts/host/path/one",
+                    "type": "bind"
+                },
+                {
+                    "destination": "/container/path/two",
+                    "options": [
+                        "rbind",
+                        "rshared",
+                        "ro"
+                    ],
+                    "source": "/run/gcs/c/sandbox0/sandboxMounts/host/path/two",
+                    "type": "bind"
+                }
+            ],
+            "noNewPrivileges": true,
+            "privileged": false,
+            "sandboxDir": "/run/gcs/c/sandbox0/sandboxMounts",
+            "seccompProfileSHA256": "",
+            "umask": "0022",
+            "user": {
+                "id": "0",
+                "name": "root"
+            },
+            "workingDir": "/home/user"
+        }
+    },
+    {
+        "name": "exec_in_container",
+        "input": {
+            "argList": [
+                "top"
+            ],
+            "containerID": "container0",
+            "envList": [
+                "CARGO_HOME=/usr/local/cargo",
+                "RUST_VERSION=1.52.1",
+                "TERM=xterm",
+                "PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "RUSTUP_HOME=/usr/local/rustup"
+            ],
+            "workingDir": "/home/user"
+        }
+    },
+    {
+        "name": "shutdown_container",
+        "input": {
+            "containerID": "container0"
+        }
+    },
+    {
+        "name": "scratch_unmount",
+        "input": {
+            "unmountTarget": "/mnt/layer6"
+        }
+    },
+    {
+        "name": "unmount_overlay",
+        "input": {
+            "unmountTarget": "/run/gcs/c/container0/rootfs"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer0"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer1"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer2"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer3"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer4"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer5"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "1b80f120dbd88e4355d6241b519c3e25290215c469516b49dece9cf07175a766",
+            "target": "/run/layers/p0-layer7"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "e769d7487cc314d3ee748a4440805317c19262c7acd2fdbdb0d47d2e4613a15c",
+            "target": "/run/layers/p0-layer8"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "eb36921e1f82af46dfe248ef8f1b3afb6a5230a64181d960d10237a08cd73c79",
+            "target": "/run/layers/p0-layer9"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "41d64cdeb347bf236b4c13b7403b633ff11f1cf94dbc7cf881a44d6da88c5156",
+            "target": "/run/layers/p0-layer10"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "4dedae42847c704da891a28c25d32201a1ae440bce2aecccfa8e6f03b97a6a6c",
+            "target": "/run/layers/p0-layer11"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "fe84c9d5bfddd07a2624d00333cf13c1a9c941f3a261f13ead44fc6a93bc0e7a",
+            "target": "/run/layers/p0-layer12"
+        }
+    },
+    {
+        "name": "mount_overlay",
+        "input": {
+            "containerID": "container1",
+            "layerPaths": [
+                "/run/layers/p0-layer7",
+                "/run/layers/p0-layer8",
+                "/run/layers/p0-layer9",
+                "/run/layers/p0-layer10",
+                "/run/layers/p0-layer11",
+                "/run/layers/p0-layer12"
+            ],
+            "target": "/run/gcs/c/container1/rootfs"
+        }
+    },
+    {
+        "name": "scratch_mount",
+        "input": {
+            "encrypted": true,
+            "target": "/mnt/layer13"
+        }
+    },
+    {
+        "name": "create_container",
+        "input": {
+            "argList": [
+                "rustc",
+                "--help"
+            ],
+            "capabilities": {
+                "ambient": [
+                    "CAP_SYS_ADMIN"
+                ],
+                "bounding": [
+                    "CAP_SYS_ADMIN"
+                ],
+                "effective": [
+                    "CAP_SYS_ADMIN"
+                ],
+                "inheritable": [
+                    "CAP_SYS_ADMIN"
+                ],
+                "permitted": [
+                    "CAP_SYS_ADMIN"
+                ]
+            },
+            "containerID": "container1",
+            "envList": [
+                "PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "RUSTUP_HOME=/usr/local/rustup",
+                "CARGO_HOME=/usr/local/cargo",
+                "RUST_VERSION=1.52.1",
+                "TERM=xterm"
+            ],
+            "groups": [
+                {
+                    "id": "0",
+                    "name": "root"
+                }
+            ],
+            "hugePagesDir": "/run/gcs/c/sandbox1/hugepages",
+            "mounts": [
+                {
+                    "destination": "/container/path/one",
+                    "options": [
+                        "rbind",
+                        "rshared",
+                        "rw"
+                    ],
+                    "source": "/run/gcs/c/sandbox1/sandboxMounts/host/path/one",
+                    "type": "bind"
+                },
+                {
+                    "destination": "/container/path/two",
+                    "options": [
+                        "rbind",
+                        "rshared",
+                        "ro"
+                    ],
+                    "source": "/run/gcs/c/sandbox1/sandboxMounts/host/path/two",
+                    "type": "bind"
+                }
+            ],
+            "noNewPrivileges": true,
+            "privileged": true,
+            "sandboxDir": "/run/gcs/c/sandbox1/sandboxMounts",
+            "seccompProfileSHA256": "",
+            "umask": "0022",
+            "user": {
+                "id": "0",
+                "name": "root"
+            },
+            "workingDir": "/home/user"
+        }
+    },
+    {
+        "name": "exec_in_container",
+        "input": {
+            "argList": [
+                "top"
+            ],
+            "containerID": "container1",
+            "envList": [
+                "PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "RUSTUP_HOME=/usr/local/rustup",
+                "CARGO_HOME=/usr/local/cargo",
+                "RUST_VERSION=1.52.1",
+                "TERM=xterm"
+            ],
+            "workingDir": "/home/user"
+        }
+    },
+    {
+        "name": "shutdown_container",
+        "input": {
+            "containerID": "container1"
+        }
+    },
+    {
+        "name": "scratch_unmount",
+        "input": {
+            "unmountTarget": "/mnt/layer13"
+        }
+    },
+    {
+        "name": "unmount_overlay",
+        "input": {
+            "unmountTarget": "/run/gcs/c/container1/rootfs"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer7"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer8"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer9"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer10"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer11"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer12"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "16b514057a06ad665f92c02863aca074fd5976c755d26bff16365299169e8415",
+            "target": "/run/layers/p0-layer14"
+        }
+    },
+    {
+        "name": "mount_overlay",
+        "input": {
+            "containerID": "container2",
+            "layerPaths": [
+                "/run/layers/p0-layer14"
+            ],
+            "target": "/run/gcs/c/container2/rootfs"
+        }
+    },
+    {
+        "name": "scratch_mount",
+        "input": {
+            "encrypted": true,
+            "target": "/mnt/layer15"
+        }
+    },
+    {
+        "name": "create_container",
+        "input": {
+            "argList": [
+                "/pause"
+            ],
+            "capabilities": null,
+            "containerID": "container2",
+            "envList": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "TERM=xterm"
+            ],
+            "groups": [
+                {
+                    "id": "0",
+                    "name": "root"
+                }
+            ],
+            "hugePagesDir": "/run/gcs/c/sandbox2/hugepages",
+            "mounts": [],
+            "noNewPrivileges": true,
+            "privileged": false,
+            "sandboxDir": "/run/gcs/c/sandbox2/sandboxMounts",
+            "seccompProfileSHA256": "",
+            "umask": "0022",
+            "user": {
+                "id": "0",
+                "name": "root"
+            },
+            "workingDir": "/"
+        }
+    },
+    {
+        "name": "shutdown_container",
+        "input": {
+            "containerID": "container2"
+        }
+    },
+    {
+        "name": "scratch_unmount",
+        "input": {
+            "unmountTarget": "/mnt/layer15"
+        }
+    },
+    {
+        "name": "unmount_overlay",
+        "input": {
+            "unmountTarget": "/run/gcs/c/container2/rootfs"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer14"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "16b514057a06ad665f92c02863aca074fd5976c755d26bff16365299169e8415",
+            "target": "/run/layers/p0-layer16"
+        }
+    },
+    {
+        "name": "mount_overlay",
+        "input": {
+            "containerID": "container3",
+            "layerPaths": [
+                "/run/layers/p0-layer16"
+            ],
+            "target": "/run/gcs/c/container3/rootfs"
+        }
+    },
+    {
+        "name": "scratch_mount",
+        "input": {
+            "encrypted": true,
+            "target": "/mnt/layer17"
+        }
+    },
+    {
+        "name": "create_container",
+        "input": {
+            "argList": [
+                "/pause"
+            ],
+            "capabilities": null,
+            "containerID": "container3",
+            "envList": [
+                "TERM=xterm",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            ],
+            "groups": [
+                {
+                    "id": "0",
+                    "name": "root"
+                }
+            ],
+            "hugePagesDir": "/run/gcs/c/sandbox3/hugepages",
+            "mounts": [],
+            "noNewPrivileges": true,
+            "privileged": true,
+            "sandboxDir": "/run/gcs/c/sandbox3/sandboxMounts",
+            "seccompProfileSHA256": "",
+            "umask": "0022",
+            "user": {
+                "id": "0",
+                "name": "root"
+            },
+            "workingDir": "/"
+        }
+    },
+    {
+        "name": "shutdown_container",
+        "input": {
+            "containerID": "container3"
+        }
+    },
+    {
+        "name": "scratch_unmount",
+        "input": {
+            "unmountTarget": "/mnt/layer17"
+        }
+    },
+    {
+        "name": "unmount_overlay",
+        "input": {
+            "unmountTarget": "/run/gcs/c/container3/rootfs"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer16"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "1b80f120dbd88e4355d6241b519c3e25290215c469516b49dece9cf07175a766",
+            "target": "/run/layers/p0-layer18"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "e769d7487cc314d3ee748a4440805317c19262c7acd2fdbdb0d47d2e4613a15c",
+            "target": "/run/layers/p0-layer19"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "eb36921e1f82af46dfe248ef8f1b3afb6a5230a64181d960d10237a08cd73c79",
+            "target": "/run/layers/p0-layer20"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "41d64cdeb347bf236b4c13b7403b633ff11f1cf94dbc7cf881a44d6da88c5156",
+            "target": "/run/layers/p0-layer21"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "4dedae42847c704da891a28c25d32201a1ae440bce2aecccfa8e6f03b97a6a6c",
+            "target": "/run/layers/p0-layer22"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "fe84c9d5bfddd07a2624d00333cf13c1a9c941f3a261f13ead44fc6a93bc0e7a",
+            "target": "/run/layers/p0-layer23"
+        }
+    },
+    {
+        "name": "mount_overlay",
+        "input": {
+            "containerID": "container4",
+            "layerPaths": [
+                "/run/layers/p0-layer18",
+                "/run/layers/p0-layer19",
+                "/run/layers/p0-layer20",
+                "/run/layers/p0-layer21",
+                "/run/layers/p0-layer22",
+                "/run/layers/p0-layer23"
+            ],
+            "target": "/run/gcs/c/container4/rootfs"
+        }
+    },
+    {
+        "name": "scratch_mount",
+        "input": {
+            "encrypted": true,
+            "target": "/mnt/layer24"
+        }
+    },
+    {
+        "name": "create_container",
+        "input": {
+            "argList": [
+                "rustc",
+                "--version"
+            ],
+            "capabilities": null,
+            "containerID": "container4",
+            "envList": [
+                "PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "RUSTUP_HOME=/usr/local/rustup",
+                "CARGO_HOME=/usr/local/cargo",
+                "RUST_VERSION=1.52.1",
+                "TERM=xterm"
+            ],
+            "groups": [
+                {
+                    "id": "0",
+                    "name": "root"
+                }
+            ],
+            "hugePagesDir": "/run/gcs/c/sandbox4/hugepages",
+            "mounts": [],
+            "noNewPrivileges": true,
+            "privileged": false,
+            "sandboxDir": "/run/gcs/c/sandbox4/sandboxMounts",
+            "seccompProfileSHA256": "",
+            "umask": "0022",
+            "user": {
+                "id": "0",
+                "name": "root"
+            },
+            "workingDir": "/home/fragment"
+        }
+    },
+    {
+        "name": "exec_in_container",
+        "input": {
+            "argList": [
+                "bash"
+            ],
+            "containerID": "container4",
+            "envList": [
+                "PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "RUSTUP_HOME=/usr/local/rustup",
+                "CARGO_HOME=/usr/local/cargo",
+                "RUST_VERSION=1.52.1",
+                "TERM=xterm"
+            ],
+            "workingDir": "/home/fragment"
+        }
+    },
+    {
+        "name": "shutdown_container",
+        "input": {
+            "containerID": "container4"
+        }
+    },
+    {
+        "name": "scratch_unmount",
+        "input": {
+            "unmountTarget": "/mnt/layer24"
+        }
+    },
+    {
+        "name": "unmount_overlay",
+        "input": {
+            "unmountTarget": "/run/gcs/c/container4/rootfs"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer18"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer19"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer20"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer21"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer22"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer23"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "1b80f120dbd88e4355d6241b519c3e25290215c469516b49dece9cf07175a766",
+            "target": "/run/layers/p0-layer25"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "e769d7487cc314d3ee748a4440805317c19262c7acd2fdbdb0d47d2e4613a15c",
+            "target": "/run/layers/p0-layer26"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "eb36921e1f82af46dfe248ef8f1b3afb6a5230a64181d960d10237a08cd73c79",
+            "target": "/run/layers/p0-layer27"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "41d64cdeb347bf236b4c13b7403b633ff11f1cf94dbc7cf881a44d6da88c5156",
+            "target": "/run/layers/p0-layer28"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "4dedae42847c704da891a28c25d32201a1ae440bce2aecccfa8e6f03b97a6a6c",
+            "target": "/run/layers/p0-layer29"
+        }
+    },
+    {
+        "name": "mount_device",
+        "input": {
+            "deviceHash": "fe84c9d5bfddd07a2624d00333cf13c1a9c941f3a261f13ead44fc6a93bc0e7a",
+            "target": "/run/layers/p0-layer30"
+        }
+    },
+    {
+        "name": "mount_overlay",
+        "input": {
+            "containerID": "container5",
+            "layerPaths": [
+                "/run/layers/p0-layer25",
+                "/run/layers/p0-layer26",
+                "/run/layers/p0-layer27",
+                "/run/layers/p0-layer28",
+                "/run/layers/p0-layer29",
+                "/run/layers/p0-layer30"
+            ],
+            "target": "/run/gcs/c/container5/rootfs"
+        }
+    },
+    {
+        "name": "scratch_mount",
+        "input": {
+            "encrypted": true,
+            "target": "/mnt/layer31"
+        }
+    },
+    {
+        "name": "create_container",
+        "input": {
+            "argList": [
+                "rustc",
+                "--version"
+            ],
+            "capabilities": null,
+            "containerID": "container5",
+            "envList": [
+                "PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "RUSTUP_HOME=/usr/local/rustup",
+                "CARGO_HOME=/usr/local/cargo",
+                "RUST_VERSION=1.52.1",
+                "TERM=xterm"
+            ],
+            "groups": [
+                {
+                    "id": "0",
+                    "name": "root"
+                }
+            ],
+            "hugePagesDir": "/run/gcs/c/sandbox5/hugepages",
+            "mounts": [],
+            "noNewPrivileges": true,
+            "privileged": true,
+            "sandboxDir": "/run/gcs/c/sandbox5/sandboxMounts",
+            "seccompProfileSHA256": "",
+            "umask": "0022",
+            "user": {
+                "id": "0",
+                "name": "root"
+            },
+            "workingDir": "/home/fragment"
+        }
+    },
+    {
+        "name": "exec_in_container",
+        "input": {
+            "argList": [
+                "bash"
+            ],
+            "containerID": "container5",
+            "envList": [
+                "PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "RUSTUP_HOME=/usr/local/rustup",
+                "CARGO_HOME=/usr/local/cargo",
+                "RUST_VERSION=1.52.1",
+                "TERM=xterm"
+            ],
+            "workingDir": "/home/fragment"
+        }
+    },
+    {
+        "name": "shutdown_container",
+        "input": {
+            "containerID": "container5"
+        }
+    },
+    {
+        "name": "scratch_unmount",
+        "input": {
+            "unmountTarget": "/mnt/layer31"
+        }
+    },
+    {
+        "name": "unmount_overlay",
+        "input": {
+            "unmountTarget": "/run/gcs/c/container5/rootfs"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer25"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer26"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer27"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer28"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer29"
+        }
+    },
+    {
+        "name": "unmount_device",
+        "input": {
+            "unmountTarget": "/run/layers/p0-layer30"
+        }
+    }
+]

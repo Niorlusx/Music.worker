@@ -85,108 +85,64 @@ export default {
 					await supabase.from('music_tasks').update({ status: 'processing' }).eq('id', task_id);
 				}
 
-				// 1. Use Grok API to optimize the prompt
-				if (env.GROK_API_KEY) {
-					try {
-						const grokResponse = await fetch('https://api.x.ai/v1/chat/completions', {
-							method: 'POST',
-							headers: {
-								'Authorization': `Bearer ${env.GROK_API_KEY}`,
-								'Content-Type': 'application/json',
-							},
-							body: JSON.stringify({
-								model: 'grok-beta',
-								messages: [
-									{ role: 'system', content: 'You are a music production assistant. Enhance the following music style prompt into a detailed technical description for an AI music generator. Keep it under 200 characters.' },
-									{ role: 'user', content: prompt }
-								]
-							}),
-						});
-						const grokData = await grokResponse.json();
-						if (grokData.choices && grokData.choices[0]) {
-							prompt = grokData.choices[0].message.content;
-							console.log(`Grok optimized prompt: ${prompt}`);
-						}
-					} catch (grokErr) {
-						console.error(`Grok API Error: ${grokErr.message}`);
-					}
-				}
-
-				// 2. Call Minimax API for music generation
-				const response = await fetch('https://api.minimax.io/v1/music_generation', {
+				// 1. Call Gemini API for music generation (using Lyria models)
+				const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${env.GEMINI_API_KEY}`;
+				
+				const geminiResponse = await fetch(geminiUrl, {
 					method: 'POST',
-					headers: {
-						'Authorization': `Bearer ${env.MINIMAX_API_KEY}`,
-						'Content-Type': 'application/json',
-					},
+					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
-						model: 'music-2.6',
-						prompt: prompt,
-						lyrics: lyrics,
-						is_instrumental: is_instrumental,
-						audio_setting: {
-							sample_rate: 44100,
-							bitrate: 128000,
-							format: 'mp3',
-						},
-					}),
+						contents: [{ 
+							parts: [{ 
+								text: `Generate a high-fidelity music track based on this prompt: ${prompt}. Lyrics: ${lyrics || 'None'}. Instrumental: ${is_instrumental}` 
+							}] 
+						}],
+						generationConfig: {
+							response_mime_type: "audio/mpeg",
+						}
+					})
 				});
 
-				const result = await response.json();
+				const result = await geminiResponse.json();
+				const audioBase64 = result.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 
-				if (result.base_resp && result.base_resp.status_code === 0) {
-					const fileId = result.file_id;
-					console.log(`Successfully generated music, File ID: ${fileId}`);
+				if (audioBase64) {
+					const audioBuffer = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
+					const key = `music-${Date.now()}.mp3`;
+					
+					await env.MUSIC_STORAGE.put(key, audioBuffer, {
+						httpMetadata: { contentType: 'audio/mpeg' },
+						customMetadata: { prompt }
+					});
+					console.log(`Stored Gemini-generated audio in R2 with key: ${key}`);
 
-					let audioData;
-					if (result.data && result.data.audio_url) {
-						const audioResp = await fetch(result.data.audio_url);
-						audioData = await audioResp.arrayBuffer();
+					// 2. Update Supabase with success
+					if (task_id) {
+						await supabase.from('music_tasks').update({ 
+							status: 'completed',
+							r2_key: key,
+							optimized_prompt: prompt
+						}).eq('id', task_id);
 					}
 
-					if (audioData) {
-						const key = `music-${Date.now()}.mp3`;
-						await env.MUSIC_STORAGE.put(key, audioData, {
-							httpMetadata: { contentType: 'audio/mpeg' },
-							customMetadata: { prompt, fileId }
-						});
-						console.log(`Stored audio in R2 with key: ${key}`);
-
-						// 3. Update Supabase with success
-						if (task_id) {
-							await supabase.from('music_tasks').update({ 
-								status: 'completed',
-								r2_key: key,
-								file_id: fileId,
-								optimized_prompt: prompt
-							}).eq('id', task_id);
-						}
-
-						// 4. Notify via Telegram
-						const chatId = telegram_chat_id || env.TELEGRAM_CHAT_ID;
-						if (env.TELEGRAM_BOT_TOKEN && chatId) {
-							try {
-								await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-									method: 'POST',
-									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({
-										chat_id: chatId,
-										text: `🎵 Music Generation Complete!\nPrompt: ${prompt}\nKey: ${key}`,
-									}),
-								});
-							} catch (tgErr) {
-								console.error(`Telegram Error: ${tgErr.message}`);
-							}
+					// 3. Notify via Telegram
+					const chatId = telegram_chat_id || env.TELEGRAM_CHAT_ID;
+					if (env.TELEGRAM_BOT_TOKEN && chatId) {
+						try {
+							await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({
+									chat_id: chatId,
+									text: `🎵 Gemini Music Generation Complete!\nPrompt: ${prompt}\nKey: ${key}`,
+								}),
+							});
+						} catch (tgErr) {
+							console.error(`Telegram Error: ${tgErr.message}`);
 						}
 					}
 				} else {
-					console.error(`Minimax API Error: ${JSON.stringify(result.base_resp)}`);
-					if (task_id) {
-						await supabase.from('music_tasks').update({ 
-							status: 'failed',
-							error: JSON.stringify(result.base_resp)
-						}).eq('id', task_id);
-					}
+					throw new Error('Gemini failed to return audio data.');
 				}
 			} catch (err) {
 				console.error(`Failed to process message ${message.id}: ${err.message}`);

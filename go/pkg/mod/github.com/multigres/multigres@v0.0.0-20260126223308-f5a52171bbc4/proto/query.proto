@@ -1,0 +1,188 @@
+/*
+Copyright 2025 Supabase, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+// This file contains data structures for query results in Multigres.
+
+syntax = "proto3";
+
+package query;
+
+import "clustermetadata.proto";
+
+option go_package = "github.com/multigres/multigres/go/pb/query";
+
+// QueryResult represents the result of executing a query
+message QueryResult {
+  // fields describes the columns in the result set (nil if no rows returned)
+  repeated Field fields = 1;
+
+  // rows_affected is the number of rows affected (INSERT, UPDATE, DELETE, etc.)
+  uint64 rows_affected = 2;
+
+  // rows contains the actual data rows
+  repeated Row rows = 3;
+
+  // command_tag is the PostgreSQL command tag for this result set.
+  // When streaming results, this should only be set on the final packet of a result set.
+  // When set, the protocol layer will send CommandComplete and reset state for the next result set.
+  // Examples: "SELECT 42", "INSERT 0 5", "UPDATE 10", "DELETE 3", "CREATE TABLE"
+  string command_tag = 4;
+}
+
+// Field represents metadata about a column in the result set.
+// This includes all PostgreSQL wire protocol metadata needed for RowDescription messages.
+message Field {
+  // name is the column name
+  string name = 1;
+
+  // type is a human-readable type name (for logging/debugging)
+  string type = 2;
+
+  // table_oid is the object ID of the table (0 if not a table column)
+  uint32 table_oid = 3;
+
+  // table_attribute_number is the column number in the table (0 if not a table column)
+  int32 table_attribute_number = 4;
+
+  // data_type_oid is the object ID of the data type
+  uint32 data_type_oid = 5;
+
+  // data_type_size is the size of the data type (-1 for variable length)
+  int32 data_type_size = 6;
+
+  // type_modifier is the type modifier (-1 for no modifier)
+  int32 type_modifier = 7;
+
+  // format is the format code (0=text, 1=binary)
+  int32 format = 8;
+}
+
+// Row represents a single row of data in the result set.
+message Row {
+  // lengths contains the length of each column value.
+  // -1 means NULL, 0 means empty string, >0 means actual length.
+  repeated sint64 lengths = 1;
+
+  // values contains all non-null values concatenated together.
+  // Use lengths to split this into individual column values.
+  bytes values = 2;
+}
+
+// StatementDescription describes a prepared statement or portal.
+// Used for the Describe message ('D') response in the extended query protocol.
+message StatementDescription {
+  // parameters describes the parameters of the statement (for statement describe)
+  // Nil for portal describe.
+  repeated ParameterDescription parameters = 1;
+
+  // fields describes the result columns
+  // Nil if the statement doesn't return rows.
+  repeated Field fields = 2;
+}
+
+// ParameterDescription describes a parameter in a prepared statement.
+message ParameterDescription {
+  // data_type_oid is the OID of the parameter's data type
+  uint32 data_type_oid = 1;
+}
+
+// Target identifies the target for query execution.
+// It specifies which tablegroup, shard, and pooler type to route the query to.
+// - Route to PRIMARY for writes
+// - Route to REPLICA for reads
+// - Route to specific shards (future)
+message Target {
+  // table_group is the target tablegroup name
+  string table_group = 1;
+
+  // shard is the target shard name (empty for unsharded or to route to any shard)
+  string shard = 2;
+
+  // pooler_type is the type of pooler to route to (PRIMARY, REPLICA)
+  // If not specified (UNKNOWN), defaults to PRIMARY
+  clustermetadata.PoolerType pooler_type = 3;
+}
+
+// PreparedStatement represents a prepared statement in the extended query protocol.
+// Prepared statements are created by the Parse message and can be executed
+// multiple times with different parameter values.
+message PreparedStatement {
+  // name is the client-provided name for the prepared statement.
+  // An empty name indicates the unnamed statement.
+  string name = 1;
+
+  // query is the SQL query string.
+  string query = 2;
+
+  // param_types contains the OIDs of the parameter types.
+  // This is sent by the client in the Parse message.
+  repeated uint32 param_types = 3;
+}
+
+// Portal represents a bound prepared statement with parameters.
+// Portals are created by the Bind message and can be executed via Execute.
+message Portal {
+  // name is the client-provided name for the portal.
+  // An empty name indicates the unnamed portal.
+  string name = 1;
+
+  // prepared_statement_name is the name of the prepared statement this portal is bound to.
+  string prepared_statement_name = 2;
+
+  // param_lengths contains the length of each parameter value.
+  // -1 means NULL, 0 means empty string, >0 means actual length.
+  repeated sint64 param_lengths = 3;
+
+  // param_values contains all non-null parameter values concatenated together.
+  // Use param_lengths to split this into individual parameter values.
+  bytes param_values = 4;
+
+  // param_formats specifies the format code for each parameter.
+  // 0 = text, 1 = binary.
+  // If empty, all parameters are text format.
+  // If a single element, that format applies to all parameters.
+  repeated int32 param_formats = 5;
+
+  // result_formats specifies the format code for each result column.
+  // 0 = text, 1 = binary.
+  // If empty, all results are text format.
+  // If a single element, that format applies to all result columns.
+  repeated int32 result_formats = 6;
+}
+
+// ExecuteOptions contains execution options for query execution.
+// This includes session state like prepared statements and portals that
+// need to be available on the connection where the query is executed.
+message ExecuteOptions {
+  // session_settings contains session variables (SET commands) that should
+  // be applied to the connection before executing the query.
+  // Key is the variable name, value is the variable value.
+  map<string, string> session_settings = 1;
+
+  // user is the PostgreSQL user/role identity for query execution.
+  // This determines which per-user connection pool to use.
+  // Required for per-user pool routing in the multipooler.
+  string user = 2;
+
+  // max_rows is the maximum number of rows to return from Execute.
+  // 0 means return all rows. Used by the Execute message in the extended query protocol.
+  uint64 max_rows = 4;
+
+  // reserved_connection_id is the ID of a reserved connection on the multipooler.
+  // Used for connection pinning - this tells the multipooler which specific
+  // connection to use for executing this query.
+  uint64 reserved_connection_id = 5;
+}

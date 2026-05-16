@@ -1,0 +1,24 @@
+name: Unit Tests
+
+on:
+  pull_request:
+  merge_group:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.21
+
+      - name: Check out source code
+        uses: actions/checkout@v6
+
+      - name: Build
+        run: go build .
+
+      - name: Test
+        run: go test -v -race -count=1 -timeout=5m -coverprofile=coverage.out ./...

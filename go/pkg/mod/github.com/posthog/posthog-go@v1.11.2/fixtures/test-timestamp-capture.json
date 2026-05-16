@@ -1,0 +1,26 @@
+{
+  "api_key": "Csyjlnlun3OzyNJAafdlv",
+  "batch": [
+    {
+      "distinct_id": "123456",
+      "event": "Download",
+      "library": "posthog-go",
+      "library_version": "1.0.0",
+      "properties": {
+        "$geoip_disable": true,
+        "$lib": "posthog-go",
+        "$lib_version": "1.0.0",
+        "$os": "IGNORED",
+        "$os_distro": "IGNORED",
+        "$os_version": "IGNORED",
+        "$go_version": "IGNORED",
+        "application": "PostHog Go",
+        "version": "1.0.0"
+      },
+      "send_feature_flags": false,
+      "timestamp": "2015-07-10T23:00:00Z",
+      "type": "capture",
+      "uuid": "00000000-0000-0000-0000-000000000013"
+    }
+  ]
+}

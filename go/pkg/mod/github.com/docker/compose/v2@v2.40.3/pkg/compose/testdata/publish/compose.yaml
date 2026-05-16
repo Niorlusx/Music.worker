@@ -1,0 +1,20 @@
+name: test
+services:
+  test:
+    extends:
+      file: common.yaml
+      service: foo
+
+  string:
+    image: test
+    env_file: test.env
+
+  list:
+    image: test
+    env_file:
+      - test.env
+
+  mapping:
+    image: test
+    env_file:
+      - path: test.env

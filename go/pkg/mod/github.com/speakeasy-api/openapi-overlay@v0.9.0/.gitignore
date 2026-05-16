@@ -1,0 +1,6 @@
+openapi-overlay
+*.bak
+*.swp
+*.iml
+.DS_Store
+.idea

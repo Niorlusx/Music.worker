@@ -1,0 +1,72 @@
+on: [push, pull_request]
+name: Sanity
+
+env:
+  GO_VERSION: '1.20.x'
+
+jobs:
+  build:
+    name: "Run go sanity tools"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: windows
+            goarch: amd64
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    - name: Install golint
+      run: go install golang.org/x/lint/golint@latest
+    - name: Lint
+      run: make lint
+    - name: Fmt
+      run: |
+        make fmt && git diff --exit-code
+    - name: Vet
+      run: make vet
+    - name: Verify go modules are properly up-to-date
+      run: |
+        make mod-tidy && git diff --exit-code
+
+  test:
+    name: "Run tests"
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    - name: Test
+      run: make test
+
+
+  # Make sure binaries compile on multiple platforms.
+  crossbuild:
+    name: "Build / Crossbuild Binaries"
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: windows
+            goarch: amd64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Build
+        env:
+          GOOS: ${{matrix.goos}}
+          GOARCH: ${{matrix.goarch}}
+        run: |
+          env | grep ^GO
+          make
