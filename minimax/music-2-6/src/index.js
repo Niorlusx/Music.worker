@@ -1,15 +1,96 @@
 import { createClient } from '@supabase/supabase-js';
 
 /**
- * music-worker: A Cloudflare Worker for generating music using Minimax API and storing in R2.
- * Integrated with Supabase for persistent task tracking.
+ * music-worker: A Cloudflare Worker for generating music using Gemini API and storing in R2.
+ * Integrated with Supabase and Telegram Bot commands.
  */
 
+async function queueTask(prompt, lyrics, is_instrumental, env, telegram_chat_id) {
+	// Initialize Supabase
+	const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+
+	// 1. Log the new task to Supabase
+	const { data: task, error: dbError } = await supabase
+		.from('music_tasks')
+		.insert([{
+			prompt,
+			lyrics,
+			is_instrumental,
+			status: 'queued',
+			created_at: new Date().toISOString()
+		}])
+		.select()
+		.single();
+
+	if (dbError) console.error('Supabase Error (Insert):', dbError.message);
+
+	// 2. Push to queue for background processing
+	await env.MY_QUEUE.send({
+		task_id: task ? task.id : null,
+		prompt,
+		lyrics,
+		is_instrumental,
+		telegram_chat_id,
+		timestamp: new Date().toISOString(),
+	});
+
+	return task ? task.id : 'logged locally';
+}
+
+async function sendTelegramMessage(env, chatId, text) {
+	if (!env.TELEGRAM_BOT_TOKEN) return;
+	try {
+		await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ chat_id: chatId, text }),
+		});
+	} catch (err) {
+		console.error('Telegram Send Error:', err.message);
+	}
+}
+
 export default {
-	/**
-	 * HTTP handler: Accepts music generation requests and pushes them to the queue.
-	 */
 	async fetch(req, env, ctx) {
+		const url = new URL(req.url);
+
+		// Route for Telegram Webhook
+		if (url.pathname === '/telegram-webhook') {
+			if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+			
+			try {
+				const update = await req.json();
+				if (!update.message || !update.message.text) return new Response('OK');
+
+				const chatId = update.message.chat.id;
+				const text = update.message.text;
+
+				// Security Check: Only allow authorized chat ID
+				if (env.TELEGRAM_CHAT_ID && String(chatId) !== String(env.TELEGRAM_CHAT_ID)) {
+					await sendTelegramMessage(env, chatId, '⚠️ Unauthorized. You are not allowed to use this bot.');
+					return new Response('OK');
+				}
+
+				if (text.startsWith('/start')) {
+					await sendTelegramMessage(env, chatId, '🎵 Welcome to Music Maker Bot!\n\nUse /generate <your prompt> to create a new track.');
+				} else if (text.startsWith('/generate')) {
+					const prompt = text.replace('/generate', '').trim();
+					if (!prompt) {
+						await sendTelegramMessage(env, chatId, '❌ Please provide a prompt. Example: /generate Lo-fi beats for studying');
+					} else {
+						await sendTelegramMessage(env, chatId, `🚀 Generation started for: "${prompt}"\nI will notify you when it's ready!`);
+						await queueTask(prompt, '', false, env, chatId);
+					}
+				}
+
+				return new Response('OK');
+			} catch (err) {
+				console.error('Webhook Error:', err.message);
+				return new Response('Error', { status: 500 });
+			}
+		}
+
+		// Standard HTTP API Route
 		if (req.method !== 'POST') {
 			return new Response('Please send a POST request with prompt and lyrics.', { status: 405 });
 		}
@@ -25,39 +106,11 @@ export default {
 				});
 			}
 
-			// Initialize Supabase
-			const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
-
-			// 1. Log the new task to Supabase
-			const { data: task, error: dbError } = await supabase
-				.from('music_tasks')
-				.insert([{
-					prompt,
-					lyrics,
-					is_instrumental,
-					status: 'queued',
-					created_at: new Date().toISOString()
-				}])
-				.select()
-				.single();
-
-			if (dbError) {
-				console.error('Supabase Error (Insert):', dbError.message);
-			}
-
-			// 2. Push to queue for background processing
-			await env.MY_QUEUE.send({
-				task_id: task ? task.id : null,
-				prompt,
-				lyrics,
-				is_instrumental,
-				telegram_chat_id,
-				timestamp: new Date().toISOString(),
-			});
+			const task_id = await queueTask(prompt, lyrics, is_instrumental, env, telegram_chat_id);
 
 			return new Response(JSON.stringify({ 
 				message: 'Music generation request queued.',
-				task_id: task ? task.id : 'logged locally'
+				task_id
 			}), {
 				headers: { 'Content-Type': 'application/json' },
 			});
@@ -70,7 +123,7 @@ export default {
 	},
 
 	/**
-	 * Queue handler: Consumes requests, calls the Minimax API, and stores result in R2.
+	 * Queue handler: Consumes requests, calls the Gemini API, and stores result in R2.
 	 */
 	async queue(batch, env) {
 		const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
