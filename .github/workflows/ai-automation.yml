@@ -1,0 +1,45 @@
+name: AI Automation Agent
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  issues:
+    types: [opened, edited]
+  schedule:
+    - cron: '0 * * * *'
+
+jobs:
+  automate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install AI Agent
+        run: npm install -g @mistral/ai-automation-agent
+        
+      - name: Auto-Review PR
+        if: github.event_name == 'pull_request'
+        run: ai-agent pr-review
+        
+      - name: Auto-Generate Docs
+        run: ai-agent generate-docs
+        
+      - name: Auto-Optimize Code
+        run: ai-agent optimize
+        
+      - name: Auto-Triage Issues
+        if: github.event_name == 'issues'
+        run: ai-agent issue-triage
